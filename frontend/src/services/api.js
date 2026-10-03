@@ -63,4 +63,16 @@ export const deploymentsAPI = {
   getDeploymentById: (id) => api.get(`/deployments/${id}`)
 };
 
+// GitHub Integration Service (Phase 2)
+export const githubAPI = {
+  getAuthUrl: () => api.get('/github/auth-url'),
+  sendCallback: (code) => api.post('/github/callback', { code }),
+  getStatus: () => api.get('/github/status'),
+  disconnect: () => api.post('/github/disconnect'),
+  getRepos: () => api.get('/github/repos'),
+  getBranches: (owner, repo) => api.get(`/github/repos/${owner}/${repo}/branches`),
+  getCommits: (owner, repo, branch) =>
+    api.get(`/github/repos/${owner}/${repo}/commits`, { params: { branch } })
+};
+
 export default api;

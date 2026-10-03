@@ -3,13 +3,22 @@ import cors from 'cors';
 import authRoutes from './routes/authRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import deploymentRoutes from './routes/deploymentRoutes.js';
+import githubRoutes from './routes/githubRoutes.js';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
 
 const app = express();
 
 // Middlewares
 app.use(cors());
-app.use(express.json());
+
+// Capture rawBody buffer for GitHub Webhook HMAC SHA-256 verification
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    }
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Health / root endpoint
@@ -25,6 +34,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/deployments', deploymentRoutes);
+app.use('/api/github', githubRoutes);
 
 // Error Middlewares
 app.use(notFound);

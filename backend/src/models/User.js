@@ -24,6 +24,33 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please provide a password'],
       minlength: [6, 'Password must be at least 6 characters']
+    },
+    github: {
+      connected: {
+        type: Boolean,
+        default: false
+      },
+      username: {
+        type: String,
+        default: null
+      },
+      githubUserId: {
+        type: String,
+        default: null
+      },
+      accessToken: {
+        type: String,
+        default: null,
+        select: false // NEVER return in API queries or JSON responses
+      },
+      avatarUrl: {
+        type: String,
+        default: null
+      },
+      connectedAt: {
+        type: Date,
+        default: null
+      }
     }
   },
   {

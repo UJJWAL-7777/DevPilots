@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { projectsAPI, deploymentsAPI } from '../services/api';
+import { projectsAPI, deploymentsAPI, githubAPI } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import DeploymentTable from '../components/DeploymentTable';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -20,7 +20,10 @@ import {
   Copy,
   Check,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  GitCommit,
+  Clock,
+  User as UserIcon
 } from 'lucide-react';
 
 const ProjectDetails = () => {
@@ -29,10 +32,15 @@ const ProjectDetails = () => {
   const [project, setProject] = useState(null);
   const [deployments, setDeployments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'deployments' | 'env'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'deployments' | 'commits' | 'env'
   const [isDeploying, setIsDeploying] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // GitHub Real Commits state
+  const [realCommits, setRealCommits] = useState([]);
+  const [loadingCommits, setLoadingCommits] = useState(false);
+  const [gitHubConnected, setGitHubConnected] = useState(false);
 
   // Environment variables form state
   const [envKey, setEnvKey] = useState('');
@@ -47,8 +55,12 @@ const ProjectDetails = () => {
         projectsAPI.getProjectById(id),
         deploymentsAPI.getProjectDeployments(id)
       ]);
-      setProject(projRes.data.data);
+      const proj = projRes.data.data;
+      setProject(proj);
       setDeployments(depRes.data.data);
+
+      // Fetch real GitHub commits if repository matches GitHub
+      fetchRealGitHubData(proj);
     } catch (err) {
       console.error('[ProjectDetails fetch error]', err);
       setError('Failed to load project details.');
@@ -56,6 +68,29 @@ const ProjectDetails = () => {
       setLoading(false);
     }
   }, [id]);
+
+  const fetchRealGitHubData = async (proj) => {
+    try {
+      const statusRes = await githubAPI.getStatus();
+      const connected = statusRes.data.data?.connected || false;
+      setGitHubConnected(connected);
+
+      if (connected && proj?.repositoryUrl) {
+        const match = proj.repositoryUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+        if (match) {
+          const owner = match[1];
+          const repo = match[2].replace(/\.git$/, '');
+          setLoadingCommits(true);
+          const commitsRes = await githubAPI.getCommits(owner, repo, proj.branch || 'main');
+          setRealCommits(commitsRes.data.data || []);
+        }
+      }
+    } catch (err) {
+      console.warn('[Real GitHub fetch error]', err.message);
+    } finally {
+      setLoadingCommits(false);
+    }
+  };
 
   useEffect(() => {
     fetchProjectData();
@@ -153,6 +188,7 @@ const ProjectDetails = () => {
   }
 
   const latestDeployment = deployments[0];
+  const latestCommit = realCommits[0];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -207,6 +243,20 @@ const ProjectDetails = () => {
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-white tracking-tight">{project.name}</h1>
               <StatusBadge status={project.status} />
+              {gitHubConnected ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Github className="w-3 h-3" />
+                  GitHub Synced
+                </span>
+              ) : (
+                <Link
+                  to="/settings/integrations"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-slate-800 text-slate-400 hover:text-white border border-slate-700 transition-colors"
+                >
+                  <Github className="w-3 h-3" />
+                  Connect GitHub
+                </Link>
+              )}
             </div>
             {project.description && (
               <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
@@ -287,6 +337,22 @@ const ProjectDetails = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('commits')}
+          id="tab-commits"
+          className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 flex items-center gap-1.5 ${
+            activeTab === 'commits'
+              ? 'border-emerald-500 text-emerald-400 bg-slate-900/60'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
+          }`}
+        >
+          <GitCommit className="w-3.5 h-3.5" />
+          <span>Commits</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 font-mono">
+            {realCommits.length}
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('env')}
           id="tab-env"
           className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 flex items-center gap-1.5 ${
@@ -307,7 +373,7 @@ const ProjectDetails = () => {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Latest Deployment Quick Card */}
+            {/* Latest Deployment Status Card */}
             <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
                 <span className="text-xs font-semibold text-white tracking-tight">
@@ -334,17 +400,25 @@ const ProjectDetails = () => {
                   <div className="space-y-1.5 text-xs text-slate-400 font-mono">
                     <div className="flex justify-between">
                       <span>Commit:</span>
-                      <span className="text-slate-300">{latestDeployment.commitHash}</span>
+                      <span className="text-white font-medium">
+                        {latestDeployment.commitHash ? latestDeployment.commitHash.substring(0, 7) : 'latest'}
+                      </span>
                     </div>
+                    {latestDeployment.commitMessage && (
+                      <div className="flex justify-between">
+                        <span>Message:</span>
+                        <span className="text-slate-300 truncate max-w-[200px]" title={latestDeployment.commitMessage}>
+                          {latestDeployment.commitMessage}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span>Branch:</span>
                       <span className="text-slate-300">{latestDeployment.branch}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Triggered:</span>
-                      <span className="text-slate-300">
-                        {new Date(latestDeployment.createdAt).toLocaleTimeString()}
-                      </span>
+                      <span>Trigger:</span>
+                      <span className="text-sky-400">{latestDeployment.trigger || 'MANUAL'}</span>
                     </div>
                   </div>
 
@@ -369,45 +443,70 @@ const ProjectDetails = () => {
               )}
             </div>
 
-            {/* Quick Environment Vault Summary */}
+            {/* Latest Real GitHub Commit Card */}
             <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
-                <span className="text-xs font-semibold text-white tracking-tight">
-                  Environment Configuration
+                <span className="text-xs font-semibold text-white tracking-tight flex items-center gap-1.5">
+                  <Github className="w-3.5 h-3.5" />
+                  <span>Latest GitHub Commit</span>
                 </span>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  {project.environmentVariables?.length || 0} variables
-                </span>
+                {latestCommit && (
+                  <a
+                    href={latestCommit.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-emerald-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>View on GitHub</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
 
-              {project.environmentVariables && project.environmentVariables.length > 0 ? (
-                <div className="space-y-2">
-                  {project.environmentVariables.slice(0, 3).map((env) => (
-                    <div
-                      key={env._id}
-                      className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs"
-                    >
-                      <span className="font-mono text-emerald-400 font-semibold">{env.key}</span>
-                      <span className="font-mono text-slate-400">••••••••</span>
-                    </div>
-                  ))}
+              {latestCommit ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-white bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                      {latestCommit.shortSha}
+                    </span>
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
+                      <Clock className="w-3 h-3" />
+                      {new Date(latestCommit.date).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed">
+                    {latestCommit.message}
+                  </p>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
+                    <UserIcon className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Author: <strong className="text-slate-300 font-medium">{latestCommit.author}</strong></span>
+                  </div>
+
                   <button
-                    onClick={() => setActiveTab('env')}
+                    onClick={() => setActiveTab('commits')}
                     className="w-full mt-2 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white transition-colors"
                   >
-                    Manage Environment Variables
+                    View Commit History ({realCommits.length})
                   </button>
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-xs text-slate-400">No environment variables defined.</p>
-                  <button
-                    onClick={() => setActiveTab('env')}
-                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Variable</span>
-                  </button>
+                  <p className="text-xs text-slate-400">
+                    {gitHubConnected
+                      ? 'No commit data found or repository private.'
+                      : 'Connect your GitHub account to preview live branch commits.'}
+                  </p>
+                  {!gitHubConnected && (
+                    <Link
+                      to="/settings/integrations"
+                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-xs font-medium hover:bg-slate-700 transition-colors"
+                    >
+                      <Github className="w-3.5 h-3.5" />
+                      <span>Connect GitHub Account</span>
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
@@ -436,7 +535,81 @@ const ProjectDetails = () => {
         </div>
       )}
 
-      {/* Tab 3: Environment Variables */}
+      {/* Tab 3: Real GitHub Commits */}
+      {activeTab === 'commits' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
+                <Github className="w-4 h-4 text-emerald-400" />
+                <span>Recent Commits on Branch '{project.branch}'</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Real commits synchronized from GitHub repository
+              </p>
+            </div>
+            <button
+              onClick={() => fetchRealGitHubData(project)}
+              className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+              title="Refresh commits"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {loadingCommits ? (
+            <LoadingSpinner text="Fetching commits from GitHub..." size="md" />
+          ) : realCommits.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border border-slate-800 bg-[#0f172a] divide-y divide-slate-800/80">
+              {realCommits.map((c) => (
+                <div key={c.sha} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-900/50 transition-colors">
+                  <div className="space-y-1 min-w-0 flex-1 pr-4">
+                    <p className="text-xs font-medium text-white truncate" title={c.message}>
+                      {c.message}
+                    </p>
+                    <div className="flex items-center gap-4 text-[11px] text-slate-400 font-mono">
+                      <span>{c.author}</span>
+                      <span>•</span>
+                      <span>{new Date(c.date).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-xs font-bold text-emerald-400 bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                      {c.shortSha}
+                    </span>
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                      title="View Commit on GitHub"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 rounded-xl border border-dashed border-slate-800 p-8">
+              <GitCommit className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-xs text-slate-300">No commits found for branch '{project.branch}'.</p>
+              {!gitHubConnected && (
+                <Link
+                  to="/settings/integrations"
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/30 transition-colors"
+                >
+                  <Github className="w-3 h-3" />
+                  <span>Connect GitHub to sync commits</span>
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 4: Environment Variables */}
       {activeTab === 'env' && (
         <div className="space-y-6">
           {/* Add Env Variable Form */}

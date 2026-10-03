@@ -44,7 +44,8 @@ const DeploymentTable = ({ deployments = [] }) => {
             <tr className="border-b border-slate-800 bg-slate-900/80 text-[11px] font-mono uppercase tracking-wider text-slate-400">
               <th className="py-3 px-4">Version</th>
               <th className="py-3 px-4">Branch</th>
-              <th className="py-3 px-4">Commit</th>
+              <th className="py-3 px-4">Commit & Message</th>
+              <th className="py-3 px-4">Trigger</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4">Created</th>
               <th className="py-3 px-4 text-right">Actions</th>
@@ -62,10 +63,10 @@ const DeploymentTable = ({ deployments = [] }) => {
                 <td className="py-3.5 px-4 text-slate-300 font-mono text-[11px]">
                   {dep.branch || 'main'}
                 </td>
-                <td className="py-3.5 px-4">
+                <td className="py-3.5 px-4 max-w-xs">
                   <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400">
-                    <GitCommit className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{dep.commitHash || 'latest'}</span>
+                    <GitCommit className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="text-white font-medium">{dep.commitHash ? dep.commitHash.substring(0, 7) : 'latest'}</span>
                     <button
                       onClick={() => copyToClipboard(dep.commitHash || '')}
                       title="Copy Commit Hash"
@@ -78,6 +79,22 @@ const DeploymentTable = ({ deployments = [] }) => {
                       )}
                     </button>
                   </div>
+                  {dep.commitMessage && (
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5" title={dep.commitMessage}>
+                      {dep.commitMessage}
+                    </p>
+                  )}
+                </td>
+                <td className="py-3.5 px-4">
+                  {dep.trigger === 'WEBHOOK' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                      Webhook
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                      Manual
+                    </span>
+                  )}
                 </td>
                 <td className="py-3.5 px-4">
                   <StatusBadge status={dep.status} />

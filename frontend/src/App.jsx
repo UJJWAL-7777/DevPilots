@@ -13,6 +13,7 @@ import Projects from './pages/Projects';
 import CreateProject from './pages/CreateProject';
 import ProjectDetails from './pages/ProjectDetails';
 import ProjectSettings from './pages/ProjectSettings';
+import Integrations from './pages/Integrations';
 
 // Layout wrapper for authenticated dashboard views
 const DashboardLayout = () => {
@@ -49,6 +50,7 @@ function App() {
               <Route path="/projects/new" element={<CreateProject />} />
               <Route path="/projects/:id" element={<ProjectDetails />} />
               <Route path="/projects/:id/settings" element={<ProjectSettings />} />
+              <Route path="/settings/integrations" element={<Integrations />} />
             </Route>
           </Route>
 

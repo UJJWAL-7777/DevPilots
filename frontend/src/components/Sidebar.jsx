@@ -70,13 +70,23 @@ const Sidebar = ({ isOpen, onClose }) => {
               </p>
             </div>
             <div className="mt-2 space-y-1">
+              <NavLink
+                to="/settings/integrations"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`
+                }
+              >
+                <GitBranch className="w-4 h-4 text-sky-400 shrink-0" />
+                <span>Git Integration</span>
+              </NavLink>
               <div className="flex items-center gap-3 px-3.5 py-2 text-xs text-slate-400 rounded-lg hover:bg-slate-800/40 cursor-default">
                 <Server className="w-4 h-4 text-emerald-400/70" />
                 <span>Simulated Cloud Edge</span>
-              </div>
-              <div className="flex items-center gap-3 px-3.5 py-2 text-xs text-slate-400 rounded-lg hover:bg-slate-800/40 cursor-default">
-                <GitBranch className="w-4 h-4 text-sky-400/70" />
-                <span>Git Integration</span>
               </div>
               <div className="flex items-center gap-3 px-3.5 py-2 text-xs text-slate-400 rounded-lg hover:bg-slate-800/40 cursor-default">
                 <ShieldCheck className="w-4 h-4 text-purple-400/70" />
@@ -89,11 +99,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         {/* Bottom platform card */}
         <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
           <div className="flex items-center justify-between text-slate-300 font-semibold mb-1">
-            <span>DevPilot Core</span>
-            <span className="text-[10px] text-emerald-400 font-mono">Phase 1</span>
+            <span>DevPilot Engine</span>
+            <span className="text-[10px] text-emerald-400 font-mono">Phase 2</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            Personal developer deployment engine connected to MongoDB.
+            Real GitHub synchronization, branch tracking, and push webhooks.
           </p>
         </div>
       </aside>

@@ -15,6 +15,15 @@ const deploymentSchema = new mongoose.Schema(
       type: String,
       default: () => Math.random().toString(16).substring(2, 9)
     },
+    commitMessage: {
+      type: String,
+      default: 'Manual deployment trigger'
+    },
+    trigger: {
+      type: String,
+      enum: ['MANUAL', 'WEBHOOK'],
+      default: 'MANUAL'
+    },
     branch: {
       type: String,
       required: true,

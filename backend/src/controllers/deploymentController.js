@@ -1,7 +1,9 @@
 import Deployment from '../models/Deployment.js';
 import Project from '../models/Project.js';
+import User from '../models/User.js';
+import githubService from '../services/githubService.js';
 
-// @desc    Trigger a simulated deployment for a project
+// @desc    Trigger a simulated deployment for a project (with real commit data if connected)
 // @route   POST /api/projects/:id/deployments
 // @access  Private
 export const triggerDeployment = async (req, res) => {
@@ -26,14 +28,41 @@ export const triggerDeployment = async (req, res) => {
     const totalPrevious = await Deployment.countDocuments({ project: project._id });
     const versionNumber = `v${totalPrevious + 1}`;
 
-    const commitHash = Math.random().toString(16).substring(2, 9);
     const branch = req.body.branch || project.branch || 'main';
+    let commitHash = Math.random().toString(16).substring(2, 9);
+    let commitMessage = 'Manual deployment trigger';
+
+    // Attempt to fetch REAL commit details from GitHub if connected
+    try {
+      const user = await User.findById(req.user._id).select('+github.accessToken');
+      if (user?.github?.connected && user.github.accessToken) {
+        const match = project.repositoryUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+        if (match) {
+          const owner = match[1];
+          const repo = match[2].replace(/\.git$/, '');
+          const latestCommit = await githubService.getLatestCommit(
+            user.github.accessToken,
+            owner,
+            repo,
+            branch
+          );
+          if (latestCommit) {
+            commitHash = latestCommit.sha;
+            commitMessage = latestCommit.message;
+          }
+        }
+      }
+    } catch (ghErr) {
+      console.warn('[Deployment GitHub Info Warning] Could not fetch real commit, using fallback:', ghErr.message);
+    }
 
     const deployment = await Deployment.create({
       project: project._id,
       version: versionNumber,
       commitHash,
+      commitMessage,
       branch,
+      trigger: 'MANUAL',
       status: 'QUEUED',
       startedAt: new Date(),
       logs: [
@@ -43,7 +72,11 @@ export const triggerDeployment = async (req, res) => {
         },
         {
           timestamp: new Date(),
-          message: `[Queue] Job queued for build processing with commit ${commitHash}`
+          message: `[Git Commit] ${commitHash.substring(0, 7)} - ${commitMessage}`
+        },
+        {
+          timestamp: new Date(),
+          message: `[Queue] Job queued for build processing with commit ${commitHash.substring(0, 7)}`
         }
       ]
     });
