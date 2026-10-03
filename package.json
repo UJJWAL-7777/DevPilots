@@ -1,0 +1,25 @@
+{
+  "name": "devpilot-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DevPilot - Personal Developer Deployment Management Platform",
+  "scripts": {
+    "start:backend": "npm --prefix backend run start",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install"
+  },
+  "keywords": [
+    "deployment",
+    "devops",
+    "vercel-alternative",
+    "developer-platform",
+    "fullstack",
+    "react",
+    "node",
+    "mongodb"
+  ],
+  "author": "Ujjwal",
+  "license": "MIT"
+}
