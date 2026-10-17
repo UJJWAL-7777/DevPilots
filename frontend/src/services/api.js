@@ -60,7 +60,8 @@ export const deploymentsAPI = {
     api.post(`/projects/${projectId}/deployments`, data),
   getProjectDeployments: (projectId) =>
     api.get(`/projects/${projectId}/deployments`),
-  getDeploymentById: (id) => api.get(`/deployments/${id}`)
+  getDeploymentById: (id) => api.get(`/deployments/${id}`),
+  cancelDeployment: (id) => api.post(`/deployments/${id}/cancel`)
 };
 
 // GitHub Integration Service (Phase 2)

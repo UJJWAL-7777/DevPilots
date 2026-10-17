@@ -31,8 +31,24 @@ const deploymentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['QUEUED', 'BUILDING', 'SUCCESS', 'FAILED'],
+      enum: ['QUEUED', 'PREPARING', 'BUILDING', 'PUBLISHING', 'SUCCESS', 'FAILED', 'CANCELLED'],
       default: 'QUEUED'
+    },
+    durationMs: {
+      type: Number,
+      default: 0
+    },
+    outputDir: {
+      type: String,
+      default: 'dist'
+    },
+    deploymentUrl: {
+      type: String,
+      default: ''
+    },
+    error: {
+      type: String,
+      default: null
     },
     startedAt: {
       type: Date,

@@ -23,7 +23,11 @@ const ProjectSettings = () => {
     repositoryUrl: '',
     repositoryName: '',
     branch: 'main',
-    framework: 'React'
+    framework: 'React',
+    rootDir: '',
+    buildCommand: 'npm run build',
+    installCommand: 'npm install',
+    outputDir: 'dist'
   });
 
   const [loading, setLoading] = useState(true);
@@ -45,7 +49,11 @@ const ProjectSettings = () => {
           repositoryUrl: p.repositoryUrl,
           repositoryName: p.repositoryName,
           branch: p.branch || 'main',
-          framework: p.framework || 'React'
+          framework: p.framework || 'React',
+          rootDir: p.rootDir || '',
+          buildCommand: p.buildCommand || 'npm run build',
+          installCommand: p.installCommand || 'npm install',
+          outputDir: p.outputDir || 'dist'
         });
       } catch (err) {
         setError('Failed to load project settings.');
@@ -217,6 +225,92 @@ const ProjectSettings = () => {
                   onChange={handleChange}
                   className="w-full pl-10 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-xl text-xs text-white outline-none font-mono"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Build Pipeline Settings */}
+          <div className="pt-4 border-t border-slate-800/80 space-y-4">
+            <h3 className="text-xs font-semibold text-white tracking-tight flex items-center gap-2">
+              <span>Pipeline & Static Build Settings</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Vite/React Static
+              </span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="rootDir">
+                  Root Directory
+                </label>
+                <input
+                  id="rootDir"
+                  name="rootDir"
+                  type="text"
+                  placeholder="./ (Leave blank for root)"
+                  value={formData.rootDir}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-xl text-xs text-white outline-none font-mono"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Subdirectory containing package.json (leave empty if repository root).
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="outputDir">
+                  Output Directory
+                </label>
+                <input
+                  id="outputDir"
+                  name="outputDir"
+                  type="text"
+                  placeholder="dist"
+                  value={formData.outputDir}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-xl text-xs text-white outline-none font-mono"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Folder containing production static build files (e.g. dist, build).
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="buildCommand">
+                  Build Command
+                </label>
+                <input
+                  id="buildCommand"
+                  name="buildCommand"
+                  type="text"
+                  placeholder="npm run build"
+                  value={formData.buildCommand}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-xl text-xs text-white outline-none font-mono"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Executed to compile the application bundle.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="installCommand">
+                  Install Command
+                </label>
+                <input
+                  id="installCommand"
+                  name="installCommand"
+                  type="text"
+                  placeholder="npm install"
+                  value={formData.installCommand}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-xl text-xs text-white outline-none font-mono"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Executed to install dependencies (lockfile-aware).
+                </span>
               </div>
             </div>
           </div>

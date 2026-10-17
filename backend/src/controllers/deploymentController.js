@@ -2,8 +2,9 @@ import Deployment from '../models/Deployment.js';
 import Project from '../models/Project.js';
 import User from '../models/User.js';
 import githubService from '../services/githubService.js';
+import buildQueue from '../services/buildQueue.js';
 
-// @desc    Trigger a simulated deployment for a project (with real commit data if connected)
+// @desc    Trigger a real deployment for a project
 // @route   POST /api/projects/:id/deployments
 // @access  Private
 export const triggerDeployment = async (req, res) => {
@@ -29,7 +30,7 @@ export const triggerDeployment = async (req, res) => {
     const versionNumber = `v${totalPrevious + 1}`;
 
     const branch = req.body.branch || project.branch || 'main';
-    let commitHash = Math.random().toString(16).substring(2, 9);
+    let commitHash = 'latest';
     let commitMessage = 'Manual deployment trigger';
 
     // Attempt to fetch REAL commit details from GitHub if connected
@@ -85,12 +86,12 @@ export const triggerDeployment = async (req, res) => {
     project.status = 'BUILDING';
     await project.save();
 
-    // Asynchronously simulate the deployment build pipeline
-    simulateDeploymentPipeline(deployment._id, project._id);
+    // Enqueue into real build runner queue
+    await buildQueue.enqueueJob(deployment._id);
 
     res.status(201).json({
       success: true,
-      message: 'Deployment triggered successfully',
+      message: 'Deployment queued successfully',
       data: deployment
     });
   } catch (error) {
@@ -101,61 +102,53 @@ export const triggerDeployment = async (req, res) => {
   }
 };
 
-// Helper function to simulate build pipeline with time progression
-const simulateDeploymentPipeline = (deploymentId, projectId) => {
-  // Step 1: Transition to BUILDING after 2.5 seconds
-  setTimeout(async () => {
-    try {
-      const dep = await Deployment.findById(deploymentId);
-      if (!dep) return;
+// @desc    Cancel an active or queued deployment
+// @route   POST /api/deployments/:id/cancel
+// @access  Private
+export const cancelDeployment = async (req, res) => {
+  try {
+    const deployment = await Deployment.findById(req.params.id).populate('project');
 
-      dep.status = 'BUILDING';
-      dep.logs.push({
-        timestamp: new Date(),
-        message: `[Build] Initializing build environment. Node.js runtime loaded.`
+    if (!deployment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Deployment not found'
       });
-      dep.logs.push({
-        timestamp: new Date(),
-        message: `[Git] Cloning repository at commit ${dep.commitHash}...`
-      });
-      dep.logs.push({
-        timestamp: new Date(),
-        message: `[Build] Resolving dependencies and compiling application...`
-      });
-      await dep.save();
-
-      // Step 2: Transition to SUCCESS after another 3.5 seconds
-      setTimeout(async () => {
-        try {
-          const finalDep = await Deployment.findById(deploymentId);
-          if (!finalDep) return;
-
-          finalDep.status = 'SUCCESS';
-          finalDep.completedAt = new Date();
-          finalDep.logs.push({
-            timestamp: new Date(),
-            message: `[Build] Build succeeded in 6.02s without errors.`
-          });
-          finalDep.logs.push({
-            timestamp: new Date(),
-            message: `[Deployment] Artifacts bundled and live at internal edge endpoint.`
-          });
-          await finalDep.save();
-
-          // Mark project status as ACTIVE
-          const proj = await Project.findById(projectId);
-          if (proj) {
-            proj.status = 'ACTIVE';
-            await proj.save();
-          }
-        } catch (err) {
-          console.error('[Deployment Simulation Step 2 Error]', err);
-        }
-      }, 3500);
-    } catch (err) {
-      console.error('[Deployment Simulation Step 1 Error]', err);
     }
-  }, 2500);
+
+    // Verify ownership
+    if (deployment.project.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to cancel this deployment'
+      });
+    }
+
+    // Check if can be cancelled
+    const activeStatuses = ['QUEUED', 'PREPARING', 'BUILDING', 'PUBLISHING'];
+    if (!activeStatuses.includes(deployment.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel deployment with current status: ${deployment.status}`
+      });
+    }
+
+    await buildQueue.cancelJob(deployment._id);
+
+    // Fetch updated deployment
+    const updated = await Deployment.findById(deployment._id);
+
+    res.json({
+      success: true,
+      message: 'Deployment cancellation initiated',
+      data: updated
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
 // @desc    Get all deployments for a project

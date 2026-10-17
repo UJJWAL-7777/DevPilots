@@ -14,6 +14,17 @@ const StatusBadge = ({ status }) => {
         </span>
       );
 
+    case 'PREPARING':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          <svg className="animate-spin w-3 h-3 text-indigo-400" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          Preparing
+        </span>
+      );
+
     case 'BUILDING':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -25,11 +36,30 @@ const StatusBadge = ({ status }) => {
         </span>
       );
 
+    case 'PUBLISHING':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+          <svg className="animate-spin w-3 h-3 text-cyan-400" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          Publishing
+        </span>
+      );
+
     case 'QUEUED':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
           Queued
+        </span>
+      );
+
+    case 'CANCELLED':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-600/30">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+          Cancelled
         </span>
       );
 

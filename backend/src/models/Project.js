@@ -38,6 +38,16 @@ const projectSchema = new mongoose.Schema(
       required: [true, 'Please provide a repository name'],
       trim: true
     },
+    repositoryOwner: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    repositoryId: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     branch: {
       type: String,
       default: 'main',
@@ -48,6 +58,31 @@ const projectSchema = new mongoose.Schema(
       required: [true, 'Please select a framework'],
       enum: ['React', 'Node.js', 'Express', 'Next.js', 'Other'],
       default: 'React'
+    },
+    rootDir: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    buildCommand: {
+      type: String,
+      trim: true,
+      default: 'npm run build'
+    },
+    installCommand: {
+      type: String,
+      trim: true,
+      default: 'npm install'
+    },
+    outputDir: {
+      type: String,
+      trim: true,
+      default: 'dist'
+    },
+    deploymentUrl: {
+      type: String,
+      trim: true,
+      default: ''
     },
     environmentVariables: [envVarSchema],
     status: {

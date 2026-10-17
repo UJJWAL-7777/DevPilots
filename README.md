@@ -1,6 +1,6 @@
-# DevPilot — Personal Developer Deployment Platform (Phase 1 & Phase 2)
+# DevPilot — Personal Developer Deployment Platform (Phase 1, 2 & 3)
 
-DevPilot is a developer deployment management platform inspired by modern developer clouds like Vercel and Railway. DevPilot allows developers to connect GitHub repositories, configure environment variables, trigger simulated build pipelines, monitor real-time deployment statuses, view real GitHub branch commits, and automatically trigger deployments on `git push` via verified webhooks.
+DevPilot is a developer deployment platform inspired by modern developer clouds like Vercel and Railway. DevPilot allows developers to connect GitHub repositories, configure build environments, trigger automated or manual deployment jobs, run isolated build workers, stream live execution logs, publish React/Vite static applications, and view live sites.
 
 ---
 
@@ -16,10 +16,12 @@ DevPilot is a developer deployment management platform inspired by modern develo
 ### Backend
 - **Node.js & Express.js** (REST API)
 - **MongoDB & Mongoose** (Data persistence with indexed schemas)
+- **Isolated Build Worker & Queue** (Independent subprocesses with token masking, timeout protection, and concurrency controls)
+- **Static Edge Publisher** (Hosts built static sites directly at `/sites/:projectId/`)
 - **JSON Web Tokens (JWT)** (Secure stateless session management)
 - **bcryptjs** (Password hashing with salt rounds)
 - **GitHub REST API & Webhooks** (HMAC SHA-256 signature verification)
-- **dotenv & cors**
+- **Node.js Built-in Test Runner** (Zero-dependency test suite via `node --test`)
 
 ---
 
@@ -28,75 +30,159 @@ DevPilot is a developer deployment management platform inspired by modern develo
 ```text
 c:\DevPilot\
 ├── backend/
+│   ├── build-workspace/          # Ephemeral isolated build folders per deployment (cleaned automatically)
+│   ├── published-sites/          # Live static application bundles served at /sites/:projectId/
 │   ├── src/
 │   │   ├── config/
 │   │   │   └── db.js                 # Mongoose connection logic
 │   │   ├── controllers/
 │   │   │   ├── authController.js     # Register, login, getMe
-│   │   │   ├── projectController.js  # Project CRUD, stats, env vars
-│   │   │   ├── deploymentController.js # Deployment lifecycle & real GitHub commit lookup
-│   │   │   └── githubController.js   # [Phase 2] OAuth callback, repos, branches, commits, webhooks
+│   │   │   ├── projectController.js  # Project CRUD, build configuration, stats, env vars
+│   │   │   ├── deploymentController.js # Real deployment queueing, status, cancellation
+│   │   │   └── githubController.js   # OAuth callback, repos, branches, commits, webhooks
 │   │   ├── middleware/
 │   │   │   ├── authMiddleware.js     # JWT Bearer token validator
 │   │   │   └── errorMiddleware.js    # 404 and global error handlers
 │   │   ├── models/
 │   │   │   ├── User.js               # Extended with secure github subdocument (select: false)
-│   │   │   ├── Project.js            # Project schema with env vars & owner ref
-│   │   │   └── Deployment.js         # Extended with commitMessage and trigger fields
+│   │   │   ├── Project.js            # Extended with rootDir, buildCommand, installCommand, outputDir, deploymentUrl
+│   │   │   └── Deployment.js         # 7-state pipeline (QUEUED, PREPARING, BUILDING, PUBLISHING, SUCCESS, FAILED, CANCELLED)
 │   │   ├── routes/
 │   │   │   ├── authRoutes.js         # /api/auth/*
 │   │   │   ├── projectRoutes.js      # /api/projects/*
-│   │   │   ├── deploymentRoutes.js   # /api/deployments/*
-│   │   │   └── githubRoutes.js       # [Phase 2] /api/github/*
+│   │   │   ├── deploymentRoutes.js   # /api/deployments/* (including /:id/cancel)
+│   │   │   └── githubRoutes.js       # /api/github/*
 │   │   ├── services/
-│   │   │   └── githubService.js      # [Phase 2] GitHub REST API client & HMAC verification
+│   │   │   ├── buildQueue.js         # Persistent concurrency queue, cancellation, and startup recovery
+│   │   │   ├── buildWorker.js        # Git revision checkout, npm ci/install, build execution, static publishing
+│   │   │   └── githubService.js      # GitHub REST API client & HMAC SHA-256 verification
 │   │   ├── utils/
 │   │   │   └── generateToken.js      # Signs JWT with 30d expiry
-│   │   ├── app.js                    # Express app & rawBody buffer middleware
-│   │   └── server.js                 # App entry point & HTTP listener
+│   │   ├── app.js                    # Express app, static site host (/sites/:projectId), rawBody buffer middleware
+│   │   └── server.js                 # App entry point, DB connect & queue recovery
+│   ├── tests/
+│   │   ├── buildPipeline.test.js     # Static publishing, SPA fallback, path safety, and queue cancellation
+│   │   ├── projectAuth.test.js       # Project ownership, missing scripts, and output directory diagnostics
+│   │   ├── security.test.js          # Path traversal prevention and credential log scrubbing
+│   │   └── webhook.test.js           # HMAC SHA-256 signature verification & duplicate event prevention
 │   ├── .env                          # Backend environment variables (gitignored)
 │   ├── .env.example
-│   ├── .gitignore
 │   └── package.json
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Navbar.jsx            # Top bar with status and user actions
-│   │   │   ├── Sidebar.jsx           # Responsive management navigation (with Git Integration link)
-│   │   │   ├── ProtectedRoute.jsx    # Authentication route guard
-│   │   │   ├── ProjectCard.jsx       # Grid card with status & repository link
-│   │   │   ├── StatusBadge.jsx       # Animated status chips (Success, Building, Queued, Failed)
-│   │   │   ├── DeploymentTable.jsx   # Tabular history with commit copy, message, & log viewer
-│   │   │   ├── LoadingSpinner.jsx    # Clean spinner component
+│   │   │   ├── Sidebar.jsx           # Responsive management navigation
+│   │   │   ├── StatusBadge.jsx       # 7-state animated status chips (Queued, Preparing, Building, Publishing, Success, Failed, Cancelled)
+│   │   │   ├── DeploymentTable.jsx   # Live history with duration, commit link, live site link, cancel action, and terminal log modal
 │   │   │   └── Modal.jsx             # Accessible popup modal
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx       # Global auth state & persistent session provider
 │   │   ├── pages/
-│   │   │   ├── Login.jsx             # User sign-in page with demo credentials
-│   │   │   ├── Register.jsx          # New user registration
-│   │   │   ├── Dashboard.jsx         # Metrics cards and recent projects
-│   │   │   ├── Projects.jsx          # Searchable & filterable project catalog
-│   │   │   ├── CreateProject.jsx     # [Phase 2] Real GitHub repo & branch selector dropdowns
-│   │   │   ├── ProjectDetails.jsx    # [Phase 2] Overview, real commits tab, and env variable vault
-│   │   │   ├── ProjectSettings.jsx   # Edit project details or danger-zone delete
-│   │   │   └── Integrations.jsx      # [Phase 2] Connect/disconnect GitHub & webhook setup guide
+│   │   │   ├── CreateProject.jsx     # GitHub repo selector + Build & Output configuration
+│   │   │   ├── ProjectDetails.jsx    # Real-time polling, live site button, build config summary, and deployments tab
+│   │   │   └── ProjectSettings.jsx   # Project & build pipeline configuration editor
 │   │   ├── services/
-│   │   │   └── api.js                # Axios client with auth and githubAPI services
-│   │   ├── App.jsx                   # Route hierarchy with /settings/integrations
-│   │   ├── main.jsx                  # React DOM mount point
-│   │   └── index.css                 # Tailwind directives and dark theme styles
-│   ├── .env
-│   ├── .env.example
-│   ├── index.html
-│   ├── postcss.config.js
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── package.json
-│
-├── .gitignore                        # Root gitignore protecting secrets
-├── package.json                      # Root workspace scripts
-└── README.md
+│   │   │   └── api.js                # Axios client with cancelDeployment and build configurations
+│   │   └── ...
+```
+
+---
+
+## ⚙️ Deployment Pipeline Lifecycle
+
+Each deployment transitions through a 7-stage state machine:
+
+1. **`QUEUED`**: The deployment job is registered in MongoDB and placed into `buildQueue`.
+2. **`PREPARING`**: A dedicated workspace folder (`backend/build-workspace/<deploymentId>`) is created. The repository is cloned shallowly (`--depth 50`) using the user's secure GitHub access token and checked out to the exact commit SHA.
+3. **`BUILDING`**:
+   - Path traversal checks ensure `rootDir` does not escape the workspace.
+   - Lockfile detection selects `npm ci`, `yarn`, or `pnpm`.
+   - Dependencies are installed in an isolated child process with stripped server environment variables.
+   - The build command (e.g., `npm run build`) is executed. Real-time stdout/stderr is scrubbed of credentials and streamed into MongoDB deployment logs.
+4. **`PUBLISHING`**:
+   - The output directory (e.g., `dist`) is verified for generated assets (e.g. `index.html`).
+   - Static files are published to `backend/published-sites/<projectId>/`.
+   - The live deployment URL is generated (`http://localhost:5000/sites/<projectId>/`).
+5. **`SUCCESS`**: Duration is recorded, deployment status is marked `SUCCESS`, and project status is updated to `ACTIVE`.
+6. **`FAILED`**: If scripts fail, commands time out, or directories are missing, clear diagnostic logs are captured, workspace is cleaned, and status is marked `FAILED`.
+7. **`CANCELLED`**: If cancelled by user while queued or running, the child process tree is cleanly terminated via OS task management and status is marked `CANCELLED`.
+
+---
+
+## 🔒 Security & Process Isolation Boundaries
+
+DevPilot enforces the following security controls:
+1. **Subprocess Separation**: Repository build code never executes inside the main Express event loop. It runs in independent child processes (`child_process.spawn`).
+2. **Environment Sanitization**: Server secrets (`JWT_SECRET`, `MONGO_URI`, `GITHUB_CLIENT_SECRET`) are stripped from the build environment. Only standard system paths and user-configured `project.environmentVariables` are passed to the worker.
+3. **Path Traversal Protection**: Both `rootDir` and `outputDir` are validated using strict relative path checks to prevent escaping the workspace directory.
+4. **Credential Log Scrubbing**: Standard regex and token masking scrub GitHub tokens (`x-access-token`, `ghp_`, `gho_`) and project secret values before storing them in logs.
+5. **Execution Timeouts**: Builds time out automatically after 10 minutes (`BUILD_TIMEOUT_MS`).
+6. **Current Isolation Limitations**: Builds execute on the host operating system with child process boundaries. They share the host kernel, file system access outside the sandbox, and host network stack. *Complete multi-tenant isolation requires containerization (Docker) and virtualized sandboxing (Kubernetes/Firecracker), scheduled for subsequent phases.*
+
+---
+
+## 📡 REST API Endpoints
+
+### Deployments (`/api/deployments` & `/api/projects/:id/deployments`)
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `POST` | `/api/projects/:id/deployments` | Enqueue a new deployment build job | Private (Bearer) |
+| `GET` | `/api/projects/:id/deployments` | List all historical deployments for a project | Private (Bearer) |
+| `GET` | `/api/deployments/:id` | Fetch deployment details, status, duration, and logs | Private (Bearer) |
+| `POST` | `/api/deployments/:id/cancel` | Cancel an active or queued deployment job | Private (Bearer) |
+
+### Static Sites (`/sites/:projectId`)
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `GET` | `/sites/:projectId/*` | Serve published static application assets with SPA fallback | Public |
+
+### GitHub Webhooks (`/api/github/webhook`)
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `POST` | `/api/github/webhook` | Process GitHub `push` events with HMAC SHA-256 signature verification | Public (Signed) |
+
+---
+
+## 🧪 Running Automated Tests
+
+Run the complete 19-test test suite using Node.js built-in runner:
+
+```bash
+cd backend
+npm test
+```
+
+### Test Coverage Summary:
+- **`tests/security.test.js`**: Path traversal escape prevention (`../`), log credential scrubbing.
+- **`tests/webhook.test.js`**: HMAC SHA-256 signature verification, branch filtering, payload tamper detection.
+- **`tests/buildPipeline.test.js`**: Static site hosting, asset delivery, SPA fallback, 404 handling, queue cancellation.
+- **`tests/projectAuth.test.js`**: User ownership authorization, missing build script diagnostic detection, missing output directory detection.
+
+---
+
+## 🏃 Running the Application Locally
+
+1. **Start MongoDB**:
+   ```bash
+   mongod --dbpath <data-dir>
+   ```
+
+2. **Start Backend Server**:
+   ```bash
+   cd backend
+   npm install
+   npm start
+   # Server listens on http://localhost:5000
+   ```
+
+3. **Start Frontend Client**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   # Client runs on http://localhost:3000
+   ```
+
 ```
 
 ---

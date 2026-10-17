@@ -96,17 +96,17 @@ const ProjectDetails = () => {
     fetchProjectData();
   }, [fetchProjectData]);
 
-  // Real-time polling while any deployment is in QUEUED or BUILDING state
+  // Real-time polling while any deployment is in active build queue states
   useEffect(() => {
-    const hasActiveDeployment = deployments.some(
-      (d) => d.status === 'QUEUED' || d.status === 'BUILDING'
+    const hasActiveDeployment = deployments.some((d) =>
+      ['QUEUED', 'PREPARING', 'BUILDING', 'PUBLISHING'].includes(d.status)
     );
 
     let interval;
     if (hasActiveDeployment) {
       interval = setInterval(() => {
         fetchProjectData();
-      }, 2000);
+      }, 1500);
     }
 
     return () => {
@@ -121,7 +121,7 @@ const ProjectDetails = () => {
 
     try {
       await deploymentsAPI.triggerDeployment(id, { branch: project.branch });
-      setSuccessMsg('Deployment initiated! Build engine is processing artifacts.');
+      setSuccessMsg('Deployment initiated! Job queued in build runner.');
       await fetchProjectData();
       setActiveTab('deployments');
       setTimeout(() => setSuccessMsg(''), 4000);
@@ -131,6 +131,17 @@ const ProjectDetails = () => {
       );
     } finally {
       setIsDeploying(false);
+    }
+  };
+
+  const handleCancelDeployment = async (depId) => {
+    try {
+      await deploymentsAPI.cancelDeployment(depId);
+      setSuccessMsg('Deployment cancellation requested.');
+      await fetchProjectData();
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel deployment.');
     }
   };
 
@@ -203,6 +214,19 @@ const ProjectDetails = () => {
         </Link>
 
         <div className="flex items-center gap-2">
+          {project.deploymentUrl && (
+            <a
+              href={project.deploymentUrl}
+              target="_blank"
+              rel="noreferrer"
+              id="visit-live-site-btn"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-semibold text-xs transition-all hover:scale-[1.02]"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Visit Live Site</span>
+            </a>
+          )}
+
           <Link
             to={`/projects/${project._id}/settings`}
             id="project-settings-btn"
@@ -214,12 +238,12 @@ const ProjectDetails = () => {
 
           <button
             onClick={handleTriggerDeploy}
-            disabled={isDeploying || latestDeployment?.status === 'BUILDING'}
+            disabled={isDeploying || ['QUEUED', 'PREPARING', 'BUILDING', 'PUBLISHING'].includes(latestDeployment?.status)}
             id="deploy-project-btn"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             <Rocket className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>{isDeploying ? 'Deploying...' : 'Deploy Project'}</span>
+            <span>{isDeploying ? 'Queuing...' : 'Deploy Project'}</span>
           </button>
         </div>
       </div>
@@ -511,6 +535,56 @@ const ProjectDetails = () => {
               )}
             </div>
           </div>
+
+          {/* Build & Output Configuration Info */}
+          <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+              <span className="text-xs font-semibold text-white tracking-tight flex items-center gap-2">
+                <span>Pipeline & Build Configuration</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Static Pipeline
+                </span>
+              </span>
+              <Link
+                to={`/projects/${project._id}/settings`}
+                className="text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                Edit
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+              <div>
+                <span className="text-slate-400 text-[11px] block">Root Directory</span>
+                <span className="text-white font-medium">{project.rootDir || './'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px] block">Build Command</span>
+                <span className="text-white font-medium">{project.buildCommand || 'npm run build'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px] block">Install Command</span>
+                <span className="text-white font-medium">{project.installCommand || 'npm install'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-[11px] block">Output Directory</span>
+                <span className="text-emerald-400 font-medium">{project.outputDir || 'dist'}</span>
+              </div>
+            </div>
+            {project.deploymentUrl && (
+              <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-400">Published URL:</span>
+                <a
+                  href={project.deploymentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-emerald-400 hover:underline inline-flex items-center gap-1 font-semibold"
+                >
+                  <span>{project.deploymentUrl}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -523,7 +597,7 @@ const ProjectDetails = () => {
             </h2>
             <button
               onClick={handleTriggerDeploy}
-              disabled={isDeploying}
+              disabled={isDeploying || ['QUEUED', 'PREPARING', 'BUILDING', 'PUBLISHING'].includes(latestDeployment?.status)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs transition-colors"
             >
               <Rocket className="w-3 h-3 stroke-[2.5]" />
@@ -531,7 +605,11 @@ const ProjectDetails = () => {
             </button>
           </div>
 
-          <DeploymentTable deployments={deployments} />
+          <DeploymentTable
+            deployments={deployments}
+            onCancelDeployment={handleCancelDeployment}
+            repositoryUrl={project.repositoryUrl}
+          />
         </div>
       )}
 

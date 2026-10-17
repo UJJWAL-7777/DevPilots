@@ -13,10 +13,12 @@ frontend/.env
 !backend/.env.example
 !frontend/.env.example
 
-# Production builds
+# Production builds & artifacts
 dist/
 frontend/dist/
 build/
+backend/build-workspace/
+backend/published-sites/
 
 # Logs
 logs/

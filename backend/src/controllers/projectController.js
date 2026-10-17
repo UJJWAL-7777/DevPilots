@@ -11,8 +11,14 @@ export const createProject = async (req, res) => {
       description,
       repositoryUrl,
       repositoryName,
+      repositoryOwner,
+      repositoryId,
       branch,
       framework,
+      rootDir,
+      buildCommand,
+      installCommand,
+      outputDir,
       environmentVariables
     } = req.body;
 
@@ -28,8 +34,14 @@ export const createProject = async (req, res) => {
       description: description || '',
       repositoryUrl,
       repositoryName,
+      repositoryOwner: repositoryOwner || '',
+      repositoryId: repositoryId || '',
       branch: branch || 'main',
       framework: framework || 'React',
+      rootDir: rootDir ? rootDir.trim() : '',
+      buildCommand: (buildCommand && buildCommand.trim()) || 'npm run build',
+      installCommand: (installCommand && installCommand.trim()) || 'npm install',
+      outputDir: (outputDir && outputDir.trim()) || 'dist',
       environmentVariables: environmentVariables || [],
       owner: req.user._id,
       status: 'ACTIVE'
@@ -124,8 +136,19 @@ export const updateProject = async (req, res) => {
       });
     }
 
-    const { name, description, repositoryUrl, repositoryName, branch, framework, status } =
-      req.body;
+    const {
+      name,
+      description,
+      repositoryUrl,
+      repositoryName,
+      branch,
+      framework,
+      rootDir,
+      buildCommand,
+      installCommand,
+      outputDir,
+      status
+    } = req.body;
 
     if (name) project.name = name;
     if (description !== undefined) project.description = description;
@@ -133,6 +156,10 @@ export const updateProject = async (req, res) => {
     if (repositoryName) project.repositoryName = repositoryName;
     if (branch) project.branch = branch;
     if (framework) project.framework = framework;
+    if (rootDir !== undefined) project.rootDir = rootDir.trim();
+    if (buildCommand !== undefined) project.buildCommand = buildCommand.trim();
+    if (installCommand !== undefined) project.installCommand = installCommand.trim();
+    if (outputDir !== undefined) project.outputDir = outputDir.trim();
     if (status) project.status = status;
 
     const updatedProject = await project.save();

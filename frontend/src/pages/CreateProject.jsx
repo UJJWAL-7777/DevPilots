@@ -25,8 +25,14 @@ const CreateProject = () => {
     description: '',
     repositoryUrl: '',
     repositoryName: '',
+    repositoryOwner: '',
+    repositoryId: '',
     branch: 'main',
-    framework: 'React'
+    framework: 'React',
+    rootDir: '',
+    buildCommand: 'npm run build',
+    installCommand: 'npm install',
+    outputDir: 'dist'
   });
 
   const [error, setError] = useState('');
@@ -81,6 +87,8 @@ const CreateProject = () => {
       ...prev,
       name: prev.name || repo.name,
       repositoryName: repo.name,
+      repositoryOwner: repo.owner || '',
+      repositoryId: String(repo.id || ''),
       repositoryUrl: repo.htmlUrl,
       description: prev.description || repo.description || '',
       branch: repo.defaultBranch || 'main'
@@ -523,6 +531,99 @@ const CreateProject = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Build & Output Configuration Card */}
+        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="pb-2 border-b border-slate-800/80 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                <span>Build & Output Settings</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Static Pipeline
+                </span>
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Configure your repository workspace structure, dependency installation, and static asset distribution.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="rootDir">
+                Root Directory
+              </label>
+              <input
+                id="rootDir"
+                name="rootDir"
+                type="text"
+                placeholder="./ (Leave blank for root)"
+                value={formData.rootDir}
+                onChange={handleChange}
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl text-xs text-white placeholder-slate-400 outline-none transition-all font-mono"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Subdirectory containing package.json (useful for monorepos).
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="outputDir">
+                Output Directory <span className="text-emerald-400">*</span>
+              </label>
+              <input
+                id="outputDir"
+                name="outputDir"
+                type="text"
+                placeholder="dist"
+                value={formData.outputDir}
+                onChange={handleChange}
+                required
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl text-xs text-white placeholder-slate-400 outline-none transition-all font-mono"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Folder containing compiled static artifacts (e.g. dist, build).
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="buildCommand">
+                Build Command <span className="text-emerald-400">*</span>
+              </label>
+              <input
+                id="buildCommand"
+                name="buildCommand"
+                type="text"
+                placeholder="npm run build"
+                value={formData.buildCommand}
+                onChange={handleChange}
+                required
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl text-xs text-white placeholder-slate-400 outline-none transition-all font-mono"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Command to compile and bundle production static files.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1" htmlFor="installCommand">
+                Install Command
+              </label>
+              <input
+                id="installCommand"
+                name="installCommand"
+                type="text"
+                placeholder="npm install"
+                value={formData.installCommand}
+                onChange={handleChange}
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl text-xs text-white placeholder-slate-400 outline-none transition-all font-mono"
+              />
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                Lockfile-aware installer (npm ci used if package-lock.json exists).
+              </span>
+            </div>
           </div>
         </div>
 

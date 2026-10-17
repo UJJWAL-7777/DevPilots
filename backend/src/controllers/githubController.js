@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Project from '../models/Project.js';
 import Deployment from '../models/Deployment.js';
 import githubService from '../services/githubService.js';
+import buildQueue from '../services/buildQueue.js';
 
 // @desc    Get GitHub OAuth authorization URL
 // @route   GET /api/github/auth-url
@@ -362,8 +363,8 @@ export const handleWebhook = async (req, res) => {
     project.status = 'BUILDING';
     await project.save();
 
-    // Trigger build simulation lifecycle
-    simulateDeploymentPipeline(deployment._id, project._id);
+    // Enqueue real build pipeline execution
+    await buildQueue.enqueueJob(deployment._id);
 
     res.status(201).json({
       success: true,
@@ -374,58 +375,4 @@ export const handleWebhook = async (req, res) => {
     console.error('[GitHub Webhook Error]', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
-};
-
-// Helper function to simulate build pipeline with time progression
-const simulateDeploymentPipeline = (deploymentId, projectId) => {
-  setTimeout(async () => {
-    try {
-      const dep = await Deployment.findById(deploymentId);
-      if (!dep) return;
-
-      dep.status = 'BUILDING';
-      dep.logs.push({
-        timestamp: new Date(),
-        message: `[Build] Environment initialized for repository source code.`
-      });
-      dep.logs.push({
-        timestamp: new Date(),
-        message: `[Git] Checking out commit ${dep.commitHash.substring(0, 7)}...`
-      });
-      dep.logs.push({
-        timestamp: new Date(),
-        message: `[Build] Compiling bundle from commit: "${dep.commitMessage}"`
-      });
-      await dep.save();
-
-      setTimeout(async () => {
-        try {
-          const finalDep = await Deployment.findById(deploymentId);
-          if (!finalDep) return;
-
-          finalDep.status = 'SUCCESS';
-          finalDep.completedAt = new Date();
-          finalDep.logs.push({
-            timestamp: new Date(),
-            message: `[Build] Build completed in 5.82s without errors.`
-          });
-          finalDep.logs.push({
-            timestamp: new Date(),
-            message: `[Edge] Application live and updated.`
-          });
-          await finalDep.save();
-
-          const proj = await Project.findById(projectId);
-          if (proj) {
-            proj.status = 'ACTIVE';
-            await proj.save();
-          }
-        } catch (err) {
-          console.error('[Sim Step 2 Error]', err);
-        }
-      }, 3500);
-    } catch (err) {
-      console.error('[Sim Step 1 Error]', err);
-    }
-  }, 2500);
 };
